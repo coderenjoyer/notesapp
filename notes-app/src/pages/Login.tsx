@@ -18,7 +18,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedUsername = loginUsername.trim();
     
@@ -26,18 +26,18 @@ const Login = () => {
       toast({
         variant: "destructive",
         title: "All fields required",
-        description: "Please enter both username and password.",
+        description: "Please enter both email and password.",
       });
       return;
     }
 
-    const success = login(trimmedUsername, loginPassword);
+    const result = await login(trimmedUsername, loginPassword);
     
-    if (!success) {
+    if (!result.success) {
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: "Invalid username or password.",
+        description: result.error || "Invalid username or password.",
       });
       return;
     }
@@ -45,7 +45,7 @@ const Login = () => {
     navigate('/notes');
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedUsername = registerUsername.trim();
     
@@ -61,8 +61,8 @@ const Login = () => {
     if (trimmedUsername.length > 50) {
       toast({
         variant: "destructive",
-        title: "Username too long",
-        description: "Username must be less than 50 characters.",
+        title: "Email too long",
+        description: "Email must be less than 50 characters.",
       });
       return;
     }
@@ -85,13 +85,13 @@ const Login = () => {
       return;
     }
 
-    const success = register(trimmedUsername, registerPassword);
+    const result = await register(trimmedUsername, registerPassword);
     
-    if (!success) {
+    if (!result.success) {
       toast({
         variant: "destructive",
         title: "Registration failed",
-        description: "Username already exists.",
+        description: result.error || "An error occurred during registration.",
       });
       return;
     }
@@ -128,11 +128,10 @@ const Login = () => {
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Input
-                    type="text"
-                    placeholder="Username"
+                    type="email"
+                    placeholder="Email"
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
-                    maxLength={50}
                     autoFocus
                   />
                 </div>
@@ -154,11 +153,10 @@ const Login = () => {
               <form onSubmit={handleRegister} className="space-y-4">
                 <div className="space-y-2">
                   <Input
-                    type="text"
-                    placeholder="Username"
+                    type="email"
+                    placeholder="Email"
                     value={registerUsername}
                     onChange={(e) => setRegisterUsername(e.target.value)}
-                    maxLength={50}
                   />
                 </div>
                 <div className="space-y-2">

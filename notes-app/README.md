@@ -1,4 +1,48 @@
-# React + TypeScript + Vite
+# Notes App
+
+A modern notes application built with React, TypeScript, Vite, and Supabase for authentication and data storage.
+
+## Features
+
+- User authentication and registration
+- Create, edit, and delete notes
+- Secure note storage with user-specific access
+- Modern UI with Tailwind CSS and shadcn/ui components
+
+## Setup Instructions
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure Supabase
+
+1. Create a Supabase project at [supabase.com](https://supabase.com)
+2. Copy your Supabase URL and anon key from your project settings
+3. Create a `.env` file in the root directory:
+
+```
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+### 3. Set Up Database Tables
+
+1. Go to your Supabase dashboard
+2. Navigate to the SQL Editor
+3. Run the SQL commands from `supabase-setup.sql` to create the users table and necessary policies
+
+### 4. Run the Application
+
+```bash
+npm run dev
+```
+
+The app will be available at `http://localhost:8080`
+
+## Tech Stack
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

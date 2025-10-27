@@ -1,67 +1,102 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/SupabaseClient';
 
 interface AuthContextType {
   username: string | null;
-  login: (username: string, password: string) => boolean;
-  register: (username: string, password: string) => boolean;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Simple encoding for localStorage (NOT secure, just better than plain text)
-const encodePassword = (password: string): string => {
-  return btoa(password);
-};
-
-const verifyPassword = (input: string, stored: string): boolean => {
-  return encodePassword(input) === stored;
-};
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsernameState] = useState<string | null>(null);
 
+  // Automatically restore session
   useEffect(() => {
-    const stored = localStorage.getItem('notesCurrentUser');
-    if (stored) {
-      setUsernameState(stored);
-    }
+    const getSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.user) {
+        setUsernameState(data.session.user.email || null);
+      }
+    };
+    getSession();
+
+    // Listen for login/logout events
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUsernameState(session?.user?.email || null);
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
-  const register = (username: string, password: string): boolean => {
-    const usersKey = 'notesUsers';
-    const users = JSON.parse(localStorage.getItem(usersKey) || '{}');
-    
-    if (users[username]) {
-      return false; // User already exists
+  const register = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Sign up the user with Supabase Auth
+      const { data, error: signUpError } = await supabase.auth.signUp({ 
+        email, 
+        password 
+      });
+      
+      if (signUpError) {
+        console.error('Sign-up error:', signUpError.message);
+        
+        // Check if user already exists
+        if (signUpError.message.includes('already registered') || signUpError.message.includes('already exists')) {
+          return { success: false, error: 'This email is already registered. Please use the login tab.' };
+        }
+        
+        return { success: false, error: signUpError.message };
+      }
+
+      // Store the user in the users table (using upsert to handle existing users)
+      if (data?.user) {
+        const { error: upsertError } = await supabase
+          .from('users')
+          .upsert([{
+              id: data.user.id,
+              email: email,
+              created_at: new Date().toISOString(),
+          }], {
+            onConflict: 'id'
+          });
+
+        if (upsertError) {
+          console.error('Error storing user:', upsertError.message);
+          // Still allow the user to proceed since auth was successful
+        }
+      }
+
+      // Supabase auto-logs in user after sign-up (if configured)
+      setUsernameState(email);
+      return { success: true };
+    } catch (error) {
+      console.error('Registration error:', error);
+      return { success: false, error: 'An unexpected error occurred during registration.' };
     }
-    
-    users[username] = encodePassword(password);
-    localStorage.setItem(usersKey, JSON.stringify(users));
-    localStorage.setItem('notesCurrentUser', username);
-    setUsernameState(username);
-    return true;
   };
 
-  const login = (username: string, password: string): boolean => {
-    const usersKey = 'notesUsers';
-    const users = JSON.parse(localStorage.getItem(usersKey) || '{}');
-    
-    if (!users[username]) {
-      return false; // User doesn't exist
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      console.error('Login error:', error.message);
+      
+      // Provide user-friendly error messages
+      if (error.message.includes('Invalid login credentials') || error.message.includes('Email not confirmed')) {
+        return { success: false, error: 'Invalid email or password. Please check your credentials.' };
+      }
+      
+      return { success: false, error: error.message };
     }
-    
-    if (!verifyPassword(password, users[username])) {
-      return false; // Wrong password
-    }
-    
-    localStorage.setItem('notesCurrentUser', username);
-    setUsernameState(username);
-    return true;
+    setUsernameState(data?.user?.email || null);
+    return { success: true };
   };
 
-  const logout = () => {
-    localStorage.removeItem('notesCurrentUser');
+  const logout = async (): Promise<void> => {
+    await supabase.auth.signOut();
     setUsernameState(null);
   };
 
